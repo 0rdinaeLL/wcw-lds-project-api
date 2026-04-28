@@ -42,7 +42,9 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/bets', betRoutes);
 app.use('/api/users', userRoutes);
-
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 // Error handler
 app.use((err, req, res, next) => {
