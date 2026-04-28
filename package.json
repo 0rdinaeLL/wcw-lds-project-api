@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "node --env-file=.env --watch src/server.js",
+    "start": "node src/server.js",
     "seed": "node prisma/seed.js",
-    "pretest": "prisma migrate deploy"
+    "pretest": "prisma migrate deploy",
+    "migrate:deploy": "prisma migrate deploy"
   },
   "keywords": [],
   "author": "",
