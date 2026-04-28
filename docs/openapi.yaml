@@ -9,7 +9,7 @@ info:
 servers:
   - url: http://localhost:8080/api
     description: Local development server
-  - url: https://wcw-lds-project-api.onrender.com
+  - url: https://wcw-lds-project-api.onrender.com/api
     description: Production server
 tags:
   - name: Auth
