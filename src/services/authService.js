@@ -12,8 +12,8 @@ export async function signUp(email, password) {
 }
 
 export async function logIn(email, password) {
-    const JWT_SECRET = process.env.JWT_SECRET;
-    const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN;
+    const JWT_SECRET = process.env.JWT_SECRET || "defaultsecret";
+    const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
     const error = new Error ('Invalid credentials');
     error.status = 401;
 
