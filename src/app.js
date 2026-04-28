@@ -11,6 +11,8 @@ import userRoutes from "./routes/userRoutes.js";
 import swaggerUi from 'swagger-ui-express';
 import yaml from 'js-yaml';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 
@@ -18,10 +20,15 @@ app.use(cors());
 app.use(express.json());
 if (process.env.NODE_ENV !== 'test') app.use(morgan('tiny'));
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load OpenAPI YAML using absolute path (works on Render)
 let specs;
 try {
-specs = yaml.load(fs.readFileSync('./docs/openapi.yaml', 'utf8'));}
-catch (error) {
+  const yamlPath = path.join(__dirname, '../docs/openapi.yaml');
+  specs = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+} catch (error) {
   console.log('Failed to load OpenAPI specification', error);
   process.exit(1);
 }
