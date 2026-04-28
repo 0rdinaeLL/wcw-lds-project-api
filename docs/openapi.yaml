@@ -8,7 +8,9 @@ info:
 
 servers:
   - url: http://localhost:8080/api
-
+    description: Local development server
+  - url: https://wcw-lds-project-api.onrender.com
+    description: Production server
 tags:
   - name: Auth
     description: User authentication endpoints
