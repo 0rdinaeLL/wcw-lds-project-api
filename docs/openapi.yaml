@@ -1,0 +1,1181 @@
+openapi: 3.0.3
+info:
+  title: World Cup Winners API
+  version: 1.0.0
+  description: >
+    REST API for managing World Cup teams, players, matches, goals, and bets,
+    with JWT-based authentication and role-based authorization.
+
+servers:
+  - url: http://localhost:8080/api
+
+tags:
+  - name: Auth
+    description: User authentication endpoints
+  - name: Teams
+    description: Operations related to national teams
+  - name: Players
+    description: Operations related to players
+  - name: Matches
+    description: Operations related to matches
+  - name: Goals
+    description: Operations related to goals
+  - name: Bets
+    description: Operations related to bets
+
+paths:
+  /auth/signup:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: Creates a new user account with role USER.
+      requestBody:
+        required: true
+        description: User signup credentials
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCredentials'
+            example:
+              email: "user@example.com"
+              password: "Password123!"
+      responses:
+        '201':
+          description: Signup successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublic'
+              example:
+                id: 1
+                email: "user@example.com"
+                role: "USER"
+        '400':
+          $ref: '#/components/responses/InvalidUserInput'
+        '409':
+          $ref: '#/components/responses/ConflictEmail'
+
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Authenticate user
+      description: Authenticate a user and return a JWT access token.
+      requestBody:
+        required: true
+        description: User credentials for login
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCredentials'
+            example:
+              email: "user@example.com"
+              password: "Password123!"
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '400':
+          $ref: '#/components/responses/InvalidUserInput'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Invalid credentials"
+
+  /teams:
+    get:
+      tags:
+        - Teams
+      summary: Get all teams
+      description: Retrieve a list of all teams ordered by name.
+      responses:
+        '200':
+          description: A list of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Teams
+      summary: Create a new team
+      description: Create a new national team (ADMIN only).
+      requestBody:
+        required: true
+        description: Team data to create
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamCreate'
+            example:
+              name: "Japan"
+              confederation: "AFC"
+              group: "C"
+      responses:
+        '201':
+          description: Team created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400':
+          $ref: '#/components/responses/InvalidTeamInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '409':
+          $ref: '#/components/responses/ConflictTeamName'
+
+  /teams/{id}:
+    get:
+      tags:
+        - Teams
+      summary: Get team by ID
+      description: Retrieve a single team by its ID.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: A single team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      security:
+        - bearerAuth: []
+      tags:
+        - Teams
+      summary: Update team by ID
+      description: Update a team (ADMIN only).
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        description: Fields to update for the team
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamUpdate'
+            example:
+              name: "Japan"
+              confederation: "AFC"
+              group: "D"
+      responses:
+        '200':
+          description: Team updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400':
+          $ref: '#/components/responses/InvalidTeamInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Teams
+      summary: Delete team by ID
+      description: Delete a team by ID (ADMIN only).
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Team deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /teams/name/{name}:
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Teams
+      summary: Delete team by name
+      description: >
+        Delete a team by its name (case-insensitive). Fails if the team still has registered players.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Team name
+          schema:
+            type: string
+            example: "Japan"
+      responses:
+        '200':
+          description: Team deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400':
+          description: Team has registered players or invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Cannot delete team 'Japan' because it still has registered players"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /players:
+    get:
+      tags:
+        - Players
+      summary: Get all players
+      description: Retrieve a list of all players.
+      responses:
+        '200':
+          description: A list of players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Player'
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Players
+      summary: Create a new player
+      description: Create a new player (ADMIN only).
+      requestBody:
+        required: true
+        description: Player data to create
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerCreate'
+            example:
+              name: "Lionel Messi"
+              position: "FW"
+              number: 10
+              teamId: 1
+      responses:
+        '201':
+          description: Player created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '400':
+          $ref: '#/components/responses/InvalidPlayerInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+
+  /players/{id}:
+    get:
+      tags:
+        - Players
+      summary: Get player by ID
+      description: Retrieve a single player by ID.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: A single player
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      security:
+        - bearerAuth: []
+      tags:
+        - Players
+      summary: Update player by ID
+      description: Update a player (ADMIN only).
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        description: Fields to update for the player
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerUpdate'
+            example:
+              name: "Lionel Messi"
+              position: "FW"
+              number: 10
+              teamId: 1
+      responses:
+        '200':
+          description: Player updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '400':
+          $ref: '#/components/responses/InvalidPlayerInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Players
+      summary: Delete player by ID
+      description: Delete a player by ID (ADMIN only).
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Player deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /players/search/{name}:
+    get:
+      tags:
+        - Players
+      summary: Search players by name
+      description: Search players by partial or full name (case-insensitive).
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Player name or partial name
+          schema:
+            type: string
+            example: "Messi"
+      responses:
+        '200':
+          description: Matching players
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Player'
+        '400':
+          $ref: '#/components/responses/InvalidPlayerInput'
+
+  /players/team-name/{teamName}:
+    get:
+      tags:
+        - Players
+      summary: Get players by team name
+      description: Retrieve all players belonging to a team by its name.
+      parameters:
+        - name: teamName
+          in: path
+          required: true
+          description: Team name
+          schema:
+            type: string
+            example: "Argentina"
+      responses:
+        '200':
+          description: Players for the given team
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Player'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /matches:
+    get:
+      tags:
+        - Matches
+      summary: Get all matches
+      description: Retrieve a list of all matches.
+      responses:
+        '200':
+          description: A list of matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Match'
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Matches
+      summary: Create a new match
+      description: Create a new match (ADMIN only).
+      requestBody:
+        required: true
+        description: Match data to create
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchCreate'
+            example:
+              team1Id: 1
+              team2Id: 2
+              team1Name: "Argentina"
+              team2Name: "Brazil"
+              matchDate: "2026-06-15T18:00:00Z"
+              round: "GROUP"
+      responses:
+        '201':
+          description: Match created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '400':
+          $ref: '#/components/responses/InvalidMatchInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+
+  /matches/{id}:
+    get:
+      tags:
+        - Matches
+      summary: Get match by ID
+      description: Retrieve a single match by ID.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: A single match
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      security:
+        - bearerAuth: []
+      tags:
+        - Matches
+      summary: Update match by ID
+      description: Update a match (ADMIN only).
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      requestBody:
+        required: true
+        description: Fields to update for the match
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchUpdate'
+      responses:
+        '200':
+          description: Match updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '400':
+          $ref: '#/components/responses/InvalidMatchInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Matches
+      summary: Delete match by ID
+      description: >
+        Delete a match by ID (ADMIN only). Fails if the match has goals or bets.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Match deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '400':
+          description: Match has goals or bets, or invalid ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Cannot delete match 10 because it has associated bets"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /goals:
+    get:
+      tags:
+        - Goals
+      summary: Get all goals
+      description: Retrieve a list of all goals.
+      responses:
+        '200':
+          description: A list of goals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Goal'
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Goals
+      summary: Create a new goal
+      description: Create a new goal (ADMIN only).
+      requestBody:
+        required: true
+        description: Goal data to create
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalCreate'
+            example:
+              matchId: 1
+              playerId: 5
+              minute: 67
+      responses:
+        '201':
+          description: Goal created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/InvalidGoalInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+
+  /goals/{id}:
+    get:
+      tags:
+        - Goals
+      summary: Get goal by ID
+      description: Retrieve a single goal by ID.
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: A single goal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Goals
+      summary: Delete goal by ID
+      description: Delete a goal by ID (ADMIN only).
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Goal deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /bets:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Bets
+      summary: Get all bets for current user
+      description: Retrieve all bets belonging to the authenticated user.
+      responses:
+        '200':
+          description: A list of bets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bet'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      security:
+        - bearerAuth: []
+      tags:
+        - Bets
+      summary: Create a new bet
+      description: Create a new bet for a match (USER or ADMIN).
+      requestBody:
+        required: true
+        description: Bet data to create
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BetCreate'
+            example:
+              matchId: 1
+              predictedWinner: 1
+              amount: 25.0
+      responses:
+        '201':
+          description: Bet created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bet'
+        '400':
+          $ref: '#/components/responses/InvalidBetInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /bets/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      tags:
+        - Bets
+      summary: Get bet by ID
+      description: Retrieve a single bet by ID (must belong to current user or ADMIN).
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: A single bet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bet'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      security:
+        - bearerAuth: []
+      tags:
+        - Bets
+      summary: Delete bet by ID
+      description: Delete a bet by ID (must belong to current user or ADMIN).
+      parameters:
+        - $ref: '#/components/parameters/ResourceId'
+      responses:
+        '200':
+          description: Bet deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bet'
+        '400':
+          $ref: '#/components/responses/InvalidId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/NotAuthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      description: Resource ID
+      schema:
+        type: integer
+        minimum: 1
+        example: 1
+
+  schemas:
+    UserPublic:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          example: "user@example.com"
+        role:
+          type: string
+          example: "USER"
+
+    AuthCredentials:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthToken:
+      type: object
+      properties:
+        accessToken:
+          type: string
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Argentina"
+        confederation:
+          type: string
+          enum: [AFC, CAF, CONCACAF, CONMEBOL, OFC, UEFA, HOST]
+        group:
+          type: string
+          nullable: true
+          example: "C"
+        matchesPlayed:
+          type: integer
+          example: 3
+        wins:
+          type: integer
+          example: 2
+        draws:
+          type: integer
+          example: 1
+        losses:
+          type: integer
+          example: 0
+        goalsFor:
+          type: integer
+          example: 5
+        goalsAgainst:
+          type: integer
+          example: 2
+        goalDiff:
+          type: integer
+          example: 3
+        points:
+          type: integer
+          example: 7
+
+    TeamCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        confederation:
+          type: string
+          enum: [AFC, CAF, CONCACAF, CONMEBOL, OFC, UEFA, HOST]
+        group:
+          type: string
+          nullable: true
+      required:
+        - name
+        - confederation
+
+    TeamUpdate:
+      allOf:
+        - $ref: '#/components/schemas/TeamCreate'
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10
+        name:
+          type: string
+          example: "Lionel Messi"
+        position:
+          type: string
+          example: "FW"
+        number:
+          type: integer
+          example: 10
+        teamId:
+          type: integer
+          example: 1
+
+    PlayerCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        position:
+          type: string
+        number:
+          type: integer
+        teamId:
+          type: integer
+      required:
+        - name
+        - position
+        - number
+        - teamId
+
+    PlayerUpdate:
+      allOf:
+        - $ref: '#/components/schemas/PlayerCreate'
+
+    Match:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 5
+        team1Id:
+          type: integer
+          example: 1
+        team2Id:
+          type: integer
+          example: 2
+        team1Name:
+          type: string
+          example: "Argentina"
+        team2Name:
+          type: string
+          example: "Brazil"
+        team1Goals:
+          type: integer
+          nullable: true
+          example: 2
+        team2Goals:
+          type: integer
+          nullable: true
+          example: 1
+        matchDate:
+          type: string
+          format: date-time
+          example: "2026-06-15T18:00:00Z"
+        round:
+          type: string
+          enum: [GROUP, ROUND_OF_32, ROUND_OF_16, QUARTERFINAL, SEMIFINAL, THIRD_PLACE, FINAL]
+
+    MatchCreate:
+      type: object
+      properties:
+        team1Id:
+          type: integer
+        team2Id:
+          type: integer
+        team1Name:
+          type: string
+        team2Name:
+          type: string
+        matchDate:
+          type: string
+          format: date-time
+        round:
+          type: string
+          enum: [GROUP, ROUND_OF_32, ROUND_OF_16, QUARTERFINAL, SEMIFINAL, THIRD_PLACE, FINAL]
+      required:
+        - team1Id
+        - team2Id
+        - team1Name
+        - team2Name
+        - matchDate
+        - round
+
+    MatchUpdate:
+      allOf:
+        - $ref: '#/components/schemas/MatchCreate'
+
+    Goal:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 20
+        matchId:
+          type: integer
+          example: 5
+        playerId:
+          type: integer
+          example: 10
+        minute:
+          type: integer
+          example: 67
+
+    GoalCreate:
+      type: object
+      properties:
+        matchId:
+          type: integer
+        playerId:
+          type: integer
+        minute:
+          type: integer
+      required:
+        - matchId
+        - playerId
+        - minute
+
+    Bet:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 3
+        userId:
+          type: integer
+          example: 1
+        matchId:
+          type: integer
+          example: 5
+        predictedWinner:
+          type: integer
+          nullable: true
+          description: "1 = team1, 2 = team2, 0 = draw"
+          example: 1
+        amount:
+          type: number
+          format: float
+          example: 25.0
+        status:
+          type: string
+          example: "PENDING"
+
+    BetCreate:
+      type: object
+      properties:
+        matchId:
+          type: integer
+        predictedWinner:
+          type: integer
+          nullable: true
+          description: "1 = team1, 2 = team2, 0 = draw"
+        amount:
+          type: number
+          format: float
+      required:
+        - matchId
+        - amount
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Resource 1 not found"
+
+    InvalidId:
+      description: Invalid ID
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          example:
+            errors:
+              - "ID must be a positive integer"
+
+    Unauthorized:
+      description: Client is not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Not authenticated. Please provide a valid token."
+
+    NotAuthorized:
+      description: Client is not authorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Forbidden: insufficient permission."
+
+    InvalidUserInput:
+      description: Bad request due to invalid user data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          example:
+            errors:
+              - "Email is required"
+              - "Password is required"
+
+    ConflictEmail:
+      description: Duplicate email
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Email has already been used."
+
+    InvalidTeamInput:
+      description: Bad request due to invalid team data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          example:
+            errors:
+              - "Name is required"
+              - "Confederation is required"
+
+    ConflictTeamName:
+      description: Duplicate team name
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Team name must be unique."
+
+    InvalidPlayerInput:
+      description: Bad request due to invalid player data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          example:
+            errors:
+              - "Name is required"
+              - "TeamId is required"
+
+    InvalidMatchInput:
+      description: Bad request due to invalid match data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          example:
+            errors:
+              - "team1Id is required"
+              - "team2Id is required"
+
+    InvalidGoalInput:
+      description: Bad request due to invalid goal data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          example:
+            errors:
+              - "matchId is required"
+              - "playerId is required"
+
+    InvalidBetInput:
+      description: Bad request due to invalid bet data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          example:
+            errors:
+              - "matchId is required"
+              - "amount is required"

@@ -1,0 +1,144 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+
+}
+
+datasource db {
+  provider = "postgresql"
+
+}
+
+// ----------------------
+// ENUMS
+// ----------------------
+enum Confederation {
+  AFC
+  CAF
+  CONCACAF
+  CONMEBOL
+  OFC
+  UEFA
+  HOST
+}
+
+enum MatchRound {
+  GROUP
+  ROUND_OF_32
+  ROUND_OF_16
+  QUARTERFINAL
+  SEMIFINAL
+  THIRD_PLACE
+  FINAL
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// ----------------------
+// MODELS
+// ----------------------
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  bets      Bet[]
+  createdAt DateTime @default(now())
+}
+
+// ----------------------
+
+model Team {
+  id            Int           @id @default(autoincrement())
+  name          String        @unique
+  confederation Confederation
+  group         String?       // e.g. "A", "B", "C" (only for group stage)
+  players       Player[]
+  
+   // Relations to Match
+  team1Matches  Match[]       @relation("Team1Matches")
+  team2Matches  Match[]       @relation("Team2Matches")
+
+  // Stats (auto-calculated)
+  matchesPlayed Int           @default(0)
+  wins          Int           @default(0)
+  draws         Int           @default(0)
+  losses        Int           @default(0)
+  goalsFor      Int           @default(0)
+  goalsAgainst  Int           @default(0)
+  goalDiff      Int           @default(0)
+  points        Int           @default(0)
+}
+
+// ----------------------
+
+model Player {
+  id        Int     @id @default(autoincrement())
+  name      String
+  position  String
+  number    Int      // Player jersey number
+  teamId    Int
+  team      Team    @relation(fields: [teamId], references: [id])
+  goals     Goal[]
+}
+
+// ----------------------
+
+model Match {
+  id           Int         @id @default(autoincrement())
+
+  team1Id      Int
+  team2Id      Int
+
+  team1Name    String
+  team2Name    String
+
+  team1Goals   Int?        // null until match is played
+  team2Goals   Int?
+
+  matchDate    DateTime
+  round        MatchRound
+
+  goals        Goal[]
+  bets         Bet[]
+
+  team1        Team        @relation("Team1Matches", fields: [team1Id], references: [id])
+  team2        Team        @relation("Team2Matches", fields: [team2Id], references: [id])
+}
+
+
+// ----------------------
+
+model Goal {
+  id        Int      @id @default(autoincrement())
+  matchId   Int
+  playerId  Int
+  minute    Int
+  match     Match    @relation(fields: [matchId], references: [id])
+  player    Player   @relation(fields: [playerId], references: [id])
+}
+
+// ----------------------
+
+model Bet {
+   id                  Int      @id @default(autoincrement())
+  userId              Int
+  matchId             Int
+
+  predictedWinner     Int?     // 1 = team1, 2 = team2, 0 = draw
+
+  amount              Float
+  status              String   @default("PENDING")
+
+  user                User     @relation(fields: [userId], references: [id])
+  match               Match    @relation(fields: [matchId], references: [id])
+}
+
